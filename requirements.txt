@@ -1,0 +1,8 @@
+Django>=5.0
+djangorestframework
+djangorestframework-simplejwt
+pillow
+psycopg2-binary
+channels
+channels-redis
+gunicorn
