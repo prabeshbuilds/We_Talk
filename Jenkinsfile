@@ -25,8 +25,10 @@ pipeline {
                 sh '''#!/usr/bin/env bash
 set -e
 python3 --version
-python3 -m pip install --upgrade pip
-python3 -m pip install --no-cache-dir -r requirements.txt
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install --no-cache-dir -r requirements.txt
 '''
             }
         }
@@ -35,7 +37,8 @@ python3 -m pip install --no-cache-dir -r requirements.txt
             steps {
                 sh '''#!/usr/bin/env bash
 set -e
-python3 manage.py test
+. .venv/bin/activate
+python manage.py test
 '''
             }
         }
