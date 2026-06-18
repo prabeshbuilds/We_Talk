@@ -10,7 +10,7 @@ pipeline {
         DJANGO_SETTINGS_MODULE = 'backend.settings'
         DOCKER_IMAGE = 'prabeshdevops/nepali_dating_python'
         DOCKER_TAG = 'latest'
-        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
+        DOCKER_CREDENTIALS_ID = 'docker-credentials'
     }
 
     stages {
@@ -55,7 +55,7 @@ docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
         stage('Login to DockerHub') {
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: env.DOCKER_CREDENTIALS_ID,
+                    credentialsId: 'docker-credentials',
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
