@@ -1,0 +1,104 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "prabeshdevops/nepali_dating_python"
+        IMAGE_TAG  = "latest"
+
+        DEPLOY_SERVER = "3.93.0.169"
+        DEPLOY_USER   = "ubuntu"
+        DEPLOY_PORT   = "22"
+
+        APP_NAME = "nepali_dating_python"
+        APP_PORT = "8000"
+        CONTAINER_PORT = "8000"
+
+        ENV_FILE = "/home/ubuntu/.django.env"
+        HEALTH_PATH = "/"
+    }
+
+    stages {
+
+        stage('📥 Pull Docker Image') {
+            steps {
+                sshagent(['deployment-server-ssh']) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no -p ${DEPLOY_PORT} ${DEPLOY_USER}@${DEPLOY_SERVER} \
+                    docker pull ${IMAGE_NAME}:${IMAGE_TAG}
+                    """
+                }
+            }
+        }
+
+        stage('🧹 Cleanup Old Container') {
+            steps {
+                sshagent(['deployment-server-ssh']) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no -p ${DEPLOY_PORT} ${DEPLOY_USER}@${DEPLOY_SERVER} '
+                    docker rm -f ${APP_NAME} || true &&
+                    sudo fuser -k ${APP_PORT}/tcp || true
+                    '
+                    """
+                }
+            }
+        }
+
+        stage('🚀 Run New Container') {
+            steps {
+                sshagent(['deployment-server-ssh']) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no -p ${DEPLOY_PORT} ${DEPLOY_USER}@${DEPLOY_SERVER} '
+                    docker run -d \
+                    --name ${APP_NAME} \
+                    -p ${APP_PORT}:${CONTAINER_PORT} \
+                    --env-file ${ENV_FILE} \
+                    --restart unless-stopped \
+                    ${IMAGE_NAME}:${IMAGE_TAG}
+                    '
+                    """
+                }
+            }
+        }
+
+        stage('🔍 Health Check') {
+            steps {
+                sshagent(['deployment-server-ssh']) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no -p ${DEPLOY_PORT} ${DEPLOY_USER}@${DEPLOY_SERVER} '
+                        echo "Health checking on http://127.0.0.1:${APP_PORT}${HEALTH_PATH}..."
+                        retries=0
+
+                        until curl -fsS http://127.0.0.1:${APP_PORT}${HEALTH_PATH} -o /dev/null; do
+                            retries=\$((retries + 1))
+                            echo "Attempt \$retries/12 - waiting for app..."
+                            if [ "\$retries" -ge 12 ]; then
+                                echo "Health check failed after 12 attempts"
+                                echo "Response body:"
+                                curl -sS http://127.0.0.1:${APP_PORT}${HEALTH_PATH} || true
+                                echo
+                                echo "Disk usage on deployment server:"
+                                df -h
+                                docker logs ${APP_NAME} --tail 50
+                                exit 1
+                            fi
+                            sleep 5
+                        done
+
+                        echo "✅ Health check passed - App is running on port ${APP_PORT}"
+                    '
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Django deployment successful.'
+        }
+
+        failure {
+            echo '❌ Deployment failed. Check Jenkins console output and remote server logs.'
+        }
+    }
+}
