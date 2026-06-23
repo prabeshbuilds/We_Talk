@@ -128,3 +128,29 @@ def respond_request(request, connection_id):
     connection.save()
 
     return Response({"message": f"Connection request {connection.status}."})
+
+@api_view(['POST'])
+def send_message(request, user_id):
+    sender = request.user
+    receiver = get_object_or_404(User, id=user_id)
+
+    # Check if users are connected
+    if not Connection.objects.filter(
+        sender=sender, receiver=receiver, status="accepted"
+    ).exists() and not Connection.objects.filter(
+        sender=receiver, receiver=sender, status="accepted"
+    ).exists():
+        return Response(
+            {"detail": "You are not connected with this user."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    message_text = request.data.get("message")
+    if not message_text:
+        return Response(
+            {"detail": "Message text is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    Message.objects.create(sender=sender, receiver=receiver, message=message_text)
+    return Response({"message": "Message sent."})
