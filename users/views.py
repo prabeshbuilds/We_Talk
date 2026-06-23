@@ -106,3 +106,25 @@ def send_request(request, user_id):
         )
 
     return Response({"message": "Connection request sent."})
+
+@api_view(['POST'])
+def respond_request(request, connection_id):
+    connection = get_object_or_404(Connection, id=connection_id)
+
+    if connection.receiver != request.user:
+        return Response(
+            {"detail": "You are not authorized to respond to this request."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    action = request.data.get("action")
+    if action not in ["accept", "reject"]:
+        return Response(
+            {"detail": "Invalid action. Use 'accept' or 'reject'."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    connection.status = "accepted" if action == "accept" else "rejected"
+    connection.save()
+
+    return Response({"message": f"Connection request {connection.status}."})
