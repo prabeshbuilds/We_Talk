@@ -1,4 +1,4 @@
-# We_Talk - Nepali Dating Platform
+# We_Talk - Random Talking
 
 A Django-based REST API for a Nepali dating application that enables users to discover matches, send connection requests, and communicate with potential matches.
 
