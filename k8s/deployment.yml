@@ -1,0 +1,210 @@
+
+# Kubernetes Deployment for Nepali Dating App Namespace, ConfigMap, Secret, Deployment, Service, HPA, and PDB 
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nepali-dating
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: django-config
+  namespace: nepali-dating
+data:
+  DEBUG: "False"
+  DJANGO_SETTINGS_MODULE: "backend.settings"
+  ALLOWED_HOSTS: "*,localhost,192.168.49.2"
+  DB_ENGINE: "django.db.backends.postgresql"
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "nepali_dating_db"
+  LOG_LEVEL: "INFO"
+
+# Note: In production, you should set DEBUG to "False" and properly configure ALLOWED_HOSTS.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: django-secret
+  namespace: nepali-dating
+type: Opaque
+stringData:
+  SECRET_KEY: "your-secure-random-secret-key-here-change-this"
+  DB_USER: "postgres"
+  DB_PASSWORD: "your-secure-db-password-here"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nepali-dating-app
+  namespace: nepali-dating
+  labels:
+    app: nepali-dating
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: nepali-dating
+  template:
+    metadata:
+      labels:
+        app: nepali-dating
+    spec:
+      containers:
+      - name: django-app
+        image: prabeshdevops/nepali_dating_python:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        # From ConfigMap
+        - name: DEBUG
+          valueFrom:
+            configMapKeyRef:
+              name: django-config
+              key: DEBUG
+        - name: DJANGO_SETTINGS_MODULE
+          valueFrom:
+            configMapKeyRef:
+              name: django-config
+              key: DJANGO_SETTINGS_MODULE
+        - name: ALLOWED_HOSTS
+          valueFrom:
+            configMapKeyRef:
+              name: django-config
+              key: ALLOWED_HOSTS
+        - name: DB_ENGINE
+          valueFrom:
+            configMapKeyRef:
+              name: django-config
+              key: DB_ENGINE
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: django-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: django-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: django-config
+              key: DB_NAME
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: django-config
+              key: LOG_LEVEL
+        # From Secret
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: django-secret
+              key: SECRET_KEY
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: django-secret
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: django-secret
+              key: DB_PASSWORD
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        volumeMounts:
+        - name: static-volume
+          mountPath: /app/staticfiles
+      volumes:
+      - name: static-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nepali-dating-service
+  namespace: nepali-dating
+  labels:
+    app: nepali-dating
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 8000
+    protocol: TCP
+    name: https
+  selector:
+    app: nepali-dating
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nepali-dating-hpa
+  namespace: nepali-dating
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nepali-dating-app
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nepali-dating-pdb
+  namespace: nepali-dating
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: nepali-dating
