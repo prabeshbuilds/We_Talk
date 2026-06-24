@@ -8,3 +8,4 @@ venv/
 .git
 .gitignore
 node_modules
+.django.env
