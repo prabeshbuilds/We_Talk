@@ -235,6 +235,34 @@ curl -X GET http://localhost:8000/api/discover/ \
 curl -X POST http://localhost:8000/api/connect/5/ \
 	-H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
+### ☸️ Kubernetes Deployment
+## Deploy namespace
+
+kubectl apply -f k8s/namespace.yaml
+
+Deploy ConfigMaps
+
+kubectl apply -f k8s/configmap.yaml
+
+Deploy Secrets
+
+kubectl apply -f k8s/secret.yaml
+
+Deploy PostgreSQL
+
+kubectl apply -f k8s/postgres/
+
+Deploy Backend
+
+kubectl apply -f k8s/backend/
+
+Deploy Ingress
+
+kubectl apply -f k8s/ingress.yaml
+
+### Verify
+
+kubectl get all
 
 ## 🔧 Configuration
 
